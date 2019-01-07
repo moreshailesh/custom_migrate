@@ -1,5 +1,5 @@
 # Migration configuration for products.
-id: todos
+id: external_api
 label: todos
 migration_group: Todos
 migration_dependencies: {}
