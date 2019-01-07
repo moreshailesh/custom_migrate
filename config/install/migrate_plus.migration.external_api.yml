@@ -1,0 +1,38 @@
+gration configuration for products.
+id: product
+label: Product
+migration_group: Products
+migration_dependencies: {}
+
+source:
+  plugin: json_source
+  path: http://www.example.com/api/products.json
+  headers:
+    Accept: 'application/json'
+  identifier: upc
+  identifierDepth: 0
+  fields:
+    - upc
+    - name
+    - description
+    - price
+
+  destination:
+                                          plugin: entity:node
+
+                                          process:
+                                                    type:
+                                                                plugin: default_value
+                                                                    default_value: product
+
+                                                                      title: name
+                                                                        field_upc: upc
+                                                                          field_description: description
+                                                                            field_price: price
+
+                                                                              sticky:
+                                                                                          plugin: default_value
+                                                                                              default_value: 0
+                                                                                                uid:
+                                                                                                            plugin: default_value
+                                                                                                                default_value: 0i

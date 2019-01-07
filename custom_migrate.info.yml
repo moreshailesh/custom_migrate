@@ -1,0 +1,9 @@
+name: Migrate from external API
+description: Custom migration module to import data from external API
+package: Migration
+type: module
+core: 8.x
+dependencies:
+  - drupal:migrate
+  - migrate_plus:migrate_plus
+  - migrate_tools:migrate_tools
