@@ -1,4 +1,4 @@
-gration configuration for products.
+# Migration configuration for products.
 id: product
 label: Product
 migration_group: Products
@@ -17,22 +17,22 @@ source:
     - description
     - price
 
-  destination:
-                                          plugin: entity:node
+destination:
+  plugin: entity:node
 
-                                          process:
-                                                    type:
-                                                                plugin: default_value
-                                                                    default_value: product
+process:
+  type:
+    plugin: default_value
+    default_value: product
 
-                                                                      title: name
-                                                                        field_upc: upc
-                                                                          field_description: description
-                                                                            field_price: price
+  title: name
+  field_upc: upc
+  field_description: description
+  field_price: price
 
-                                                                              sticky:
-                                                                                          plugin: default_value
-                                                                                              default_value: 0
-                                                                                                uid:
-                                                                                                            plugin: default_value
-                                                                                                                default_value: 0i
+  sticky:
+    plugin: default_value
+    default_value: 0
+  uid:
+    plugin: default_value
+    default_value: 0
