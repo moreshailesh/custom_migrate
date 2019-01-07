@@ -1,21 +1,21 @@
 # Migration configuration for products.
-id: product
-label: Product
-migration_group: Products
+id: todos
+label: todos
+migration_group: Todos
 migration_dependencies: {}
 
 source:
   plugin: json_source
-  path: http://www.example.com/api/products.json
+  path: https://jsonplaceholder.typicode.com/todos
   headers:
     Accept: 'application/json'
-  identifier: upc
+  identifier: Title
   identifierDepth: 0
   fields:
-    - upc
-    - name
-    - description
-    - price
+    - UserId
+    - Id
+    - Title
+    - Completed
 
 destination:
   plugin: entity:node
@@ -23,12 +23,12 @@ destination:
 process:
   type:
     plugin: default_value
-    default_value: product
+    default_value: todos
 
-  title: name
-  field_upc: upc
-  field_description: description
-  field_price: price
+  title: Title
+  field_UserId: UserId
+  field_Id: Id
+  field_Completed: Completed
 
   sticky:
     plugin: default_value
