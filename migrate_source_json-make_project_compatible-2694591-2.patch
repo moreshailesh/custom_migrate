@@ -1,0 +1,254 @@
+diff --git a/migrate_source_json.info b/migrate_source_json.info
+index 7914231..00c24db 100644
+--- a/migrate_source_json.info
++++ b/migrate_source_json.info
+@@ -1 +1,3 @@
+ name = Migrate Source JSON
++dependencies:
++  - migrate (>= 8.1)
+diff --git a/phpunit.xml.dist b/phpunit.xml.dist
+index ac02787..6a4aa96 100644
+--- a/phpunit.xml.dist
++++ b/phpunit.xml.dist
+@@ -8,7 +8,7 @@
+     <ini name="memory_limit" value="-1"/>
+   </php>
+   <testsuites>
+-    <testsuite name="Migrate CSV Test Suite">
++    <testsuite name="Migrate JSON Test Suite">
+       <directory>./tests/src/Unit</directory>
+     </testsuite>
+   </testsuites>
+diff --git a/src/Plugin/migrate/source/JSONListSource.php b/src/Plugin/migrate/source/JSONListSource.php
+index 1382177..5eb131a 100755
+--- a/src/Plugin/migrate/source/JSONListSource.php
++++ b/src/Plugin/migrate/source/JSONListSource.php
+@@ -10,9 +10,8 @@
+ 
+ namespace Drupal\migrate_source_json\Plugin\migrate\source;
+ 
+-use Drupal\migrate\Annotation\MigrateSource;
+-use Drupal\migrate\Entity\MigrationInterface;
+ use Drupal\migrate\MigrateException;
++use Drupal\migrate\Plugin\MigrationInterface;
+ 
+ /**
+  * Source for JSON data that contains a list of ids that require a second request.
+diff --git a/src/Plugin/migrate/source/JSONMultiSource.php b/src/Plugin/migrate/source/JSONMultiSource.php
+index 7bc2e1d..4619573 100755
+--- a/src/Plugin/migrate/source/JSONMultiSource.php
++++ b/src/Plugin/migrate/source/JSONMultiSource.php
+@@ -22,8 +22,7 @@
+ 
+ namespace Drupal\migrate_source_json\Plugin\migrate\source;
+ 
+-use Drupal\migrate\Annotation\MigrateSource;
+-use Drupal\migrate\Entity\MigrationInterface;
++use Drupal\migrate\Plugin\MigrationInterface;
+ 
+ /**
+  * Source for multiple JSON files.
+diff --git a/src/Plugin/migrate/source/JSONSource.php b/src/Plugin/migrate/source/JSONSource.php
+index 446956e..73b3248 100755
+--- a/src/Plugin/migrate/source/JSONSource.php
++++ b/src/Plugin/migrate/source/JSONSource.php
+@@ -7,10 +7,9 @@
+ 
+ namespace Drupal\migrate_source_json\Plugin\migrate\source;
+ 
+-use Drupal\migrate\Annotation\MigrateSource;
+-use Drupal\migrate\Entity\MigrationInterface;
+ use Drupal\migrate\MigrateException;
+ use Drupal\migrate\Plugin\migrate\source\SourcePluginBase;
++use Drupal\migrate\Plugin\MigrationInterface;
+ 
+ /**
+  * A source class for JSON files.
+diff --git a/tests/src/Unit/JSONTestCaseClient.php b/tests/src/Unit/JSONTestCaseClient.php
+index 67290b2..f8df1aa 100644
+--- a/tests/src/Unit/JSONTestCaseClient.php
++++ b/tests/src/Unit/JSONTestCaseClient.php
+@@ -11,6 +11,7 @@
+ use Drupal\migrate_source_json\Plugin\migrate\JSONClient;
+ use GuzzleHttp\Exception\BadResponseException;
+ use GuzzleHttp\Psr7\Request;
++use GuzzleHttp\Psr7\Response;
+ 
+ /**
+  * Object to retrieve and iterate over JSON data.
+@@ -41,7 +42,7 @@ public function getResponse($url) {
+       default:
+         $body = $content[$url];
+     }
+-    $response = new \GuzzleHttp\Psr7\Response($status, $headers, $body);
++    $response = new Response($status, $headers, $body);
+     return $response;
+   }
+ 
+diff --git a/tests/src/Unit/JSONUnitTestCase.php b/tests/src/Unit/JSONUnitTestCase.php
+index 5ee4829..c2a0cac 100644
+--- a/tests/src/Unit/JSONUnitTestCase.php
++++ b/tests/src/Unit/JSONUnitTestCase.php
+@@ -6,7 +6,10 @@
+ 
+ namespace Drupal\Tests\migrate_source_json\Unit;
+ 
++use Drupal\migrate\Plugin\Migration;
++use Drupal\migrate_source_json\Plugin\migrate\JSONReader;
+ use Drupal\Tests\UnitTestCase;
++use Prophecy\Argument;
+ 
+ /**
+  * Base unit test to build json file contents.
+@@ -39,7 +42,9 @@
+   /**
+    * The mock migration plugin.
+    *
+-   * @var \Drupal\migrate\Entity\MigrationInterface
++   * @topo Swap it out for a mock instance after https://www.drupal.org/node/2694009
++   *
++   * @var \Drupal\migrate\Plugin\Migration
+    */
+   protected $plugin;
+ 
+@@ -55,7 +60,14 @@ protected function setUp() {
+ 
+     $this->pluginId = 'test json migration';
+     $this->pluginDefinition = array();
+-    $this->plugin = $this->getMock('\Drupal\migrate\Entity\MigrationInterface');
++    $plugin = $this->prophesize(Migration::class);
++    $plugin->getIdMap()
++      ->willReturn(NULL);
++    // @topo Swap it out for getHighWaterProperty after https://www.drupal.org/node/2694009
++    $plugin->get(Argument::exact('highWaterProperty'))
++      ->willReturn(NULL);
++
++    $this->plugin = $plugin->reveal();
+ 
+     $this->configuration = array(
+       'path' => 'nested.json',
+@@ -63,8 +75,8 @@ protected function setUp() {
+       'identifierDepth' => 1,
+       'fields' => array('id', 'user_name', 'description'),
+       'headers' => array(array('Accept' => 'application/json')),
+-      'clientClass' => 'Drupal\Tests\migrate_source_json\Unit\JSONTestCaseClient',
+-      'readerClass' => 'Drupal\migrate_source_json\Plugin\migrate\JSONReader',
++      'clientClass' => JSONTestCaseClient::class,
++      'readerClass' => JSONReader::class,
+     );
+ 
+   }
+diff --git a/tests/src/Unit/Plugin/migrate/JSONReaderTest.php b/tests/src/Unit/Plugin/migrate/JSONReaderTest.php
+index b7baf0f..9437154 100644
+--- a/tests/src/Unit/Plugin/migrate/JSONReaderTest.php
++++ b/tests/src/Unit/Plugin/migrate/JSONReaderTest.php
+@@ -7,7 +7,9 @@
+ 
+ namespace Drupal\Tests\migrate_source_json\Unit\Plugin\migrate;
+ 
++use Drupal\migrate_source_json\Plugin\migrate\JSONClientInterface;
+ use Drupal\migrate_source_json\Plugin\migrate\JSONReader;
++use Drupal\migrate_source_json\Plugin\migrate\JSONReaderInterface;
+ use Drupal\Tests\migrate_source_json\Unit\JSONUnitTestCase;
+ 
+ /**
+@@ -41,7 +43,7 @@ public function setUp() {
+    * @covers ::__construct
+    */
+   public function create() {
+-    $this->assertInstanceOf('Drupal\migrate_source_json\Plugin\migrate\JSONReaderInterface', $this->reader);
++    $this->assertInstanceOf(JSONReaderInterface::class, $this->reader);
+   }
+ 
+   /**
+@@ -79,7 +81,7 @@ public function missingIdentifierDepth() {
+   public function setClient() {
+     $this->reader->setClient();
+     $client = $this->reader->getClient();
+-    $this->assertInstanceOf('Drupal\migrate_source_json\Plugin\migrate\JSONClientInterface', $client);
++    $this->assertInstanceOf(JSONClientInterface::class, $client);
+   }
+ 
+   /**
+diff --git a/tests/src/Unit/Plugin/migrate/source/JSONClientTest.php b/tests/src/Unit/Plugin/migrate/source/JSONClientTest.php
+index 17f9efd..fa719e1 100644
+--- a/tests/src/Unit/Plugin/migrate/source/JSONClientTest.php
++++ b/tests/src/Unit/Plugin/migrate/source/JSONClientTest.php
+@@ -7,7 +7,7 @@
+ 
+ namespace Drupal\Tests\migrate_source_json\Unit\Plugin\migrate\source;
+ 
+-use Drupal\migrate_source_json\Plugin\migrate\source\JSONSource;
++use Drupal\migrate_source_json\Plugin\migrate\JSONClientInterface;
+ use Drupal\Tests\migrate_source_json\Unit\JSONUnitTestCase;
+ 
+ /**
+@@ -43,7 +43,7 @@ public function setUp() {
+    * @covers ::__construct
+    */
+   public function create() {
+-    $this->assertInstanceOf('Drupal\migrate_source_json\Plugin\migrate\JSONClientInterface', $this->client);
++    $this->assertInstanceOf(JSONClientInterface::class, $this->client);
+   }
+ 
+   /**
+diff --git a/tests/src/Unit/Plugin/migrate/source/JSONMultiSourceTest.php b/tests/src/Unit/Plugin/migrate/source/JSONMultiSourceTest.php
+index 4465fa3..82ea3e4 100644
+--- a/tests/src/Unit/Plugin/migrate/source/JSONMultiSourceTest.php
++++ b/tests/src/Unit/Plugin/migrate/source/JSONMultiSourceTest.php
+@@ -35,7 +35,7 @@ public function setUp() {
+    * @covers ::__construct
+    */
+   public function create() {
+-    $this->assertInstanceOf('\Drupal\migrate_source_json\Plugin\migrate\source\JSONMultiSource', $this->source);
++    $this->assertInstanceOf(JSONMultiSource::class, $this->source);
+   }
+ 
+   /**
+@@ -102,33 +102,4 @@ public function get() {
+     $this->assertEquals('id', $this->source->get('identifier'));
+   }
+ 
+-  /**
+-   * Tests initialization of the iterator.
+-   *
+-   * @test
+-   *
+-   * @covers ::initializeIterator
+-   */
+-  public function initializeIterator() {
+-//    $configuration = $this->configuration;
+-//    $configuration['path'] = 'top.json';
+-//    $configuration['identifierDepth'] = 0;
+-//    $source = new JSONMultiSource($configuration, $this->pluginId, $this->pluginDefinition, $this->plugin);
+-//    $iterator = $this->invokeMethod($source, 'initializeIterator');
+-//    $this->assertInstanceOf('Iterator', $iterator);
+-//    $iterator->rewind();
+-//    $item = $iterator->current();
+-//    $this->assertEquals($item['id'], 1);
+-//
+-//    $configuration = $this->configuration;
+-//    $configuration['path'] = 'nested.json';
+-//    $configuration['identifierDepth'] = 1;
+-//    $source = new JSONMultiSource($configuration, $this->pluginId, $this->pluginDefinition, $this->plugin);
+-//    $iterator = $this->invokeMethod($source, 'initializeIterator');
+-//    $iterator->rewind();
+-//    $item = $iterator->current();
+-//    $this->assertEquals($item['id'], 1);
+-//
+-  }
+-
+ }
+diff --git a/tests/src/Unit/Plugin/migrate/source/JSONSourceTest.php b/tests/src/Unit/Plugin/migrate/source/JSONSourceTest.php
+index 8f9447f..584ed36 100644
+--- a/tests/src/Unit/Plugin/migrate/source/JSONSourceTest.php
++++ b/tests/src/Unit/Plugin/migrate/source/JSONSourceTest.php
+@@ -35,7 +35,7 @@ public function setUp() {
+    * @covers ::__construct
+    */
+   public function create() {
+-    $this->assertInstanceOf('\Drupal\migrate_source_json\Plugin\migrate\source\JSONSource', $this->source);
++    $this->assertInstanceOf(JSONSource::class, $this->source);
+   }
+ 
+   /**
