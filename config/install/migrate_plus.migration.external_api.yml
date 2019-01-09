@@ -1,21 +1,42 @@
 # Migration configuration for products.
+dependencies:
+  module:
+    - node
+  enforced:
+    module:
+      - custom_migrate
+
 id: external_api
 label: todos
 migration_group: Todos
-migration_dependencies: {}
 
 source:
-  plugin: json_source
-  path: https://jsonplaceholder.typicode.com/todos
-  headers:
-    Accept: 'application/json'
-  identifier: Title
-  identifierDepth: 0
+  plugin: url
+  data_fetcher_plugin: http
+  data_parser_plugin: json
+  urls: https://jsonplaceholder.typicode.com/todos
+  ids:
+    nid:
+      type: integer
+  item_selector: UserId/
+
   fields:
-    - UserId
-    - Id
-    - Title
-    - Completed
+    -
+      name: UserId
+      label: 'UserId'
+      selector: UserId
+    -
+      name: Id
+      label: 'Id'
+      selector: Id
+    -
+      name: Title
+      label: 'Title'
+      selector: Title
+    -
+      name: Completed
+      label: 'Completed'
+      selector: Completed
 
 destination:
   plugin: entity:node
@@ -26,13 +47,8 @@ process:
     default_value: todos
 
   title: Title
-  field_UserId: UserId
-  field_Id: Id
-  field_Completed: Completed
-
-  sticky:
-    plugin: default_value
-    default_value: 0
+  created: timestamp
+  changed: timestamp 
   uid:
     plugin: default_value
     default_value: 0
